@@ -422,9 +422,21 @@ function upcomingCountdownText(events,now){
  return (days?days+'d ':'')+hours+'h '+mins+'m';
 }
 function updateUpcomingCountdown(events,now){document.querySelector('#upcoming-countdown').textContent=upcomingCountdownText(events,now)}
+function combineUpcomingBoardGames(events){
+ const result=[],groups=new Map();
+ for(const event of events){
+  if(!/\b(chess|carrom)\b/i.test(event.title)){result.push({...event,sessions:[event]});continue}
+  const key=event.title.trim().toLowerCase();
+  if(!groups.has(key)){const group={...event,sessions:[],boardGame:true};groups.set(key,group);result.push(group)}
+  const group=groups.get(key);group.sessions.push(event);
+  if(!/^https?:\/\//i.test(group.registration_url||'')&&/^https?:\/\//i.test(event.registration_url||''))group.registration_url=event.registration_url;
+ }
+ return result;
+}
 function updateUpcomingEvents(now=new Date()){
- const root=document.querySelector('#upcoming-events'),events=upcomingSelection(schedule,now);
- updateUpcomingCountdown(events,now);
+ const root=document.querySelector('#upcoming-events'),pendingEvents=upcomingSelection(schedule,now);
+ updateUpcomingCountdown(pendingEvents,now);
+ const events=combineUpcomingBoardGames(pendingEvents);
  const signature=JSON.stringify(events);
  if(root.dataset.signature===signature)return;
  root.dataset.signature=signature;root.replaceChildren();
@@ -439,10 +451,16 @@ function updateUpcomingEvents(now=new Date()){
    const title=document.createElement('h4');title.textContent=event.title;heading.append(title);
    const register=registrationButton(event.registration_url);
    if(register){register.classList.add('upcoming-register');heading.append(register)}
-   const meta=document.createElement('div');meta.className='upcoming-event-meta';
-   const dateSpan=document.createElement('span');dateSpan.textContent=dateLabel;meta.append(dateSpan);
-   if(event.time){const separator=document.createElement('span');separator.className='upcoming-separator';separator.textContent='|';separator.setAttribute('aria-hidden','true');const time=document.createElement('span');time.textContent=event.time;meta.append(separator,time)}
-   item.append(heading,meta);if(event.spoc||event.spoc_phone){const contact=document.createElement('p');contact.className='upcoming-spoc';contact.textContent='SPOC: '+(spocDisplayName(event.spoc)||'Event contact');appendSpocWhatsApp(contact,event.spoc,event.spoc_phone,event.title);item.append(contact)}group.append(item);
+   item.append(heading);
+   for(const session of event.sessions){
+    const meta=document.createElement('div');meta.className='upcoming-event-meta';
+    const d=new Date(Date.UTC(+session.date.slice(0,4),+session.date.slice(4,6)-1,+session.date.slice(6,8)));
+    const dateSpan=document.createElement('span');dateSpan.textContent=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',weekday:'short',timeZone:'UTC'}).format(d);meta.append(dateSpan);
+    if(session.time){const separator=document.createElement('span');separator.className='upcoming-separator';separator.textContent='|';separator.setAttribute('aria-hidden','true');const time=document.createElement('span');time.textContent=session.time;meta.append(separator,time)}
+    item.append(meta);
+   }
+   if(event.boardGame&&event.sessions.length>1){const note=document.createElement('p');note.className='upcoming-continuation';note.textContent='One registration covers both days. Sunday is for completing pending matches.';item.append(note)}
+   if(event.spoc||event.spoc_phone){const contact=document.createElement('p');contact.className='upcoming-spoc';contact.textContent='SPOC: '+(spocDisplayName(event.spoc)||'Event contact');appendSpocWhatsApp(contact,event.spoc,event.spoc_phone,event.title);item.append(contact)}group.append(item);
   }
   root.append(group);
  }
