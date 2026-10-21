@@ -583,7 +583,25 @@ function restart(){
  if(!paused&&!focusPaused&&!document.hidden&&!viewer.open&&slides.length>1)timer=setInterval(()=>show(current+1),3000);
  pause.textContent=paused?'Play':'Pause';pause.setAttribute('aria-label',paused?'Play slideshow':'Pause slideshow');pause.setAttribute('aria-pressed',String(paused));
 }
-function refreshSlides(){const active=slides[current];slides=allSlides.filter(slide=>slide.dataset.available!=='false');show(Math.max(0,slides.indexOf(active)));restart()}
+// true = Upcoming Events only
+// false = restore all available slides
+const UPCOMING_ONLY = true;
+
+function refreshSlides() {
+  const active = slides[current];
+
+  slides = allSlides.filter(slide =>
+    UPCOMING_ONLY
+      ? slide.id === 'upcoming'
+      : slide.dataset.available !== 'false'
+  );
+
+  carousel.querySelector('.carousel-controls').style.display =
+    slides.length > 1 ? '' : 'none';
+
+  show(Math.max(0, slides.indexOf(active)));
+  restart();
+}
 dots.forEach(dot=>dot.onclick=()=>{const i=slides.indexOf(allSlides[Number(dot.dataset.goto)]);if(i>=0)show(i);restart()});
 document.querySelector('#slide-prev').onclick=()=>{show(current-1);restart()};
 document.querySelector('#slide-next').onclick=()=>{show(current+1);restart()};
