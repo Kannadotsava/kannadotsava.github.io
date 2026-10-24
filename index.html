@@ -495,21 +495,21 @@ function upcomingCountdownText(events,now){
  return hours>=1?hours+' '+(hours===1?'hour':'hours')+' to go':'Starting in under an hour';
 }
 function updateUpcomingCountdown(events,now){document.querySelector('#upcoming-countdown').textContent=upcomingCountdownText(events,now)}
-function combineUpcomingBoardGames(events){
+function combineUpcomingEvents(events){
  const result=[],groups=new Map();
  for(const event of events){
-  if(!/\b(chess|carrom)\b/i.test(event.title)){result.push({...event,sessions:[event]});continue}
-  const key=event.title.trim().toLowerCase();
-  if(!groups.has(key)){const group={...event,sessions:[],boardGame:true};groups.set(key,group);result.push(group)}
+  const key=event.title.trim().replace(/\s+/g,' ').toLowerCase();
+  if(!groups.has(key)){const group={...event,sessions:[],boardGame:/\b(chess|carrom)\b/i.test(event.title)};groups.set(key,group);result.push(group)}
   const group=groups.get(key);group.sessions.push(event);
   {const cur=String(group.registration_url||'').trim(),next=String(event.registration_url||'').trim();if(next&&(!cur||(!/^https?:\/\//i.test(cur)&&/^https?:\/\//i.test(next))||(/^tbd$/i.test(cur)&&!/^tbd$/i.test(next))))group.registration_url=next;}
  }
+ for(const group of result)group.sessions.sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
  return result;
 }
 function updateUpcomingEvents(now=new Date()){
  const root=document.querySelector('#upcoming-events'),pendingEvents=upcomingSelection(schedule,now);
  updateUpcomingCountdown(pendingEvents,now);
- const events=combineUpcomingBoardGames(pendingEvents);
+ const events=combineUpcomingEvents(pendingEvents);
  const signature=JSON.stringify(events);
  if(root.dataset.signature===signature)return;
  root.dataset.signature=signature;root.replaceChildren();
