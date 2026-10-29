@@ -425,6 +425,7 @@ button,.calendar-link,.registration-action,.primary,.secondary{min-height:44px}.
 .event-results dl>div{display:grid;grid-template-columns:115px minmax(0,1fr);gap:10px;align-items:baseline}
 .event-results dt{font-size:12px;font-weight:700;color:#7b6547}
 .event-results dd{margin:0;font-size:14px;font-weight:650;line-height:1.5;color:#422d28;white-space:pre-line;overflow-wrap:anywhere}
+.upcoming-slot-category{flex-basis:100%;font-size:12px;color:#725b49}
 #upcoming-events .event-results{margin-top:2px}
 @media(max-width:600px){.event-results dl>div{grid-template-columns:1fr;gap:3px}.registration-completed{font-size:12px}}
 
@@ -561,9 +562,9 @@ const panel=document.querySelector('#schedule-panel');function renderSchedule(da
 function upcomingSelection(source,now=new Date()){
  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(now).map(p=>[p.type,p.value]));
  const current=parts.year+parts.month+parts.day+'T'+parts.hour+parts.minute+parts.second;
- const events=source.month.filter(r=>r[4]?.date&&r[4]?.end).map(r=>({title:r[1],description:r[2],registration_url:r[4].registration_url,winner:r[4].winner,runner_up:r[4].runner_up,second_runner_up:r[4].second_runner_up,spoc:r[4].spoc,spoc_phone:r[4].spoc_phone,allDay:r[4].allDay,date:r[4].date,start:r[4].start,end:r[4].end,time:r[0].split('|')[1]?.trim()||''}));
+ const events=source.month.filter(r=>r[4]?.date&&r[4]?.end).map(r=>({title:r[1],event_name:r[4].event_name,participants:r[4].participants,description:r[2],registration_url:r[4].registration_url,winner:r[4].winner,runner_up:r[4].runner_up,second_runner_up:r[4].second_runner_up,spoc:r[4].spoc,spoc_phone:r[4].spoc_phone,allDay:r[4].allDay,date:r[4].date,start:r[4].start,end:r[4].end,time:r[0].split('|')[1]?.trim()||''}));
  for(const [key,date] of [['sat','20261128'],['sun','20261129']]){
-  source[key].forEach(r=>events.push({title:r[1],description:r[2],registration_url:r[4]?.registration_url,winner:r[4]?.winner,runner_up:r[4]?.runner_up,second_runner_up:r[4]?.second_runner_up,spoc:r[4]?.spoc,spoc_phone:r[4]?.spoc_phone,allDay:r[4]?.allDay??true,date,start:r[4]?.start||'000000',end:r[4]?.end||'235959',time:r[0]}));
+  source[key].forEach(r=>events.push({title:r[1],event_name:r[4]?.event_name,participants:r[4]?.participants,description:r[2],registration_url:r[4]?.registration_url,winner:r[4]?.winner,runner_up:r[4]?.runner_up,second_runner_up:r[4]?.second_runner_up,spoc:r[4]?.spoc,spoc_phone:r[4]?.spoc_phone,allDay:r[4]?.allDay??true,date,start:r[4]?.start||'000000',end:r[4]?.end||'235959',time:r[0]}));
  }
  function weekendKey(date){
   const d=new Date(Date.UTC(+date.slice(0,4),+date.slice(4,6)-1,+date.slice(6,8)));
@@ -609,8 +610,9 @@ function updateUpcomingCountdown(events,now){document.querySelector('#upcoming-c
 function combineUpcomingEvents(events){
  const result=[],groups=new Map();
  for(const event of events){
-  const key=event.title.trim().replace(/\s+/g,' ').toLowerCase();
-  if(!groups.has(key)){const group={...event,sessions:[],boardGame:/\b(chess|carrom)\b/i.test(event.title)};groups.set(key,group);result.push(group)}
+  const name=String(event.event_name||event.title).trim().replace(/\s+/g,' ');
+  const key=name.toLowerCase();
+  if(!groups.has(key)){const group={...event,title:name,sessions:[],boardGame:/\b(chess|carrom)\b/i.test(event.title)};groups.set(key,group);result.push(group)}
   const group=groups.get(key);group.sessions.push(event);
   for(const field of ['winner','runner_up','second_runner_up'])if(!group[field]&&event[field])group[field]=event[field];
   {const cur=String(group.registration_url||'').trim(),next=String(event.registration_url||'').trim();
@@ -646,6 +648,7 @@ function updateUpcomingEvents(now=new Date()){
     const d=new Date(Date.UTC(+session.date.slice(0,4),+session.date.slice(4,6)-1,+session.date.slice(6,8)));
     const dateSpan=document.createElement('span');dateSpan.textContent=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',weekday:'short',timeZone:'UTC'}).format(d);meta.append(dateSpan);
     if(session.time){const separator=document.createElement('span');separator.className='upcoming-separator';separator.textContent='|';separator.setAttribute('aria-hidden','true');const time=document.createElement('span');time.textContent=session.time;meta.append(separator,time)}
+    if(session.participants){const category=document.createElement('span');category.className='upcoming-slot-category';category.textContent=session.participants;meta.append(category)}
     item.append(meta);
    }
    if(event.boardGame&&event.sessions.length>1){const note=document.createElement('p');note.className='upcoming-continuation';note.textContent='One registration covers both days. Sunday is for completing pending matches.';item.append(note)}
@@ -869,7 +872,7 @@ function sheetSchedule(rows){
   const d=date?new Date(Date.UTC(+date.slice(0,4),+date.slice(4,6)-1,+date.slice(6,8))):null;
   const dateText=d?new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',day:'numeric',month:'short',weekday:'short'}).format(d):'TBD';
   const timeText=start?(prettyClock(start)+(end?'–'+prettyClock(end):'')):'TBD';
-  const timing={date,start:start||'000000',end:end||'235959',allDay:!start||!end,venue:e.venue,registration_url:e.registration_url,spoc:e.spoc||'',spoc_phone:e.spoc_phone||'',winner:e.winner||'',runner_up:e.runner_up||'',second_runner_up:e.second_runner_up||''};
+  const timing={event_name:e.event_name,participants:e.participants,date,start:start||'000000',end:end||'235959',allDay:!start||!end,venue:e.venue,registration_url:e.registration_url,spoc:e.spoc||'',spoc_phone:e.spoc_phone||'',winner:e.winner||'',runner_up:e.runner_up||'',second_runner_up:e.second_runner_up||''};
   const item=[dateText+' | '+timeText,title,desc,e.category||'Event',timing];
   if(date==='20261128')data.sat.push(item);else if(date==='20261129')data.sun.push(item);else data.month.push(item);
  }
