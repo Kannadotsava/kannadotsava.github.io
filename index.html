@@ -624,8 +624,11 @@ function combineUpcomingEvents(events){
  const result=[],groups=new Map();
  for(const event of events){
   const name=String(event.event_name||event.title).trim().replace(/\s+/g,' ');
-  const key=name.toLowerCase();
-  if(!groups.has(key)){const group={...event,title:name,sessions:[],boardGame:/\b(chess|carrom)\b/i.test(event.title)};groups.set(key,group);result.push(group)}
+  const participants=String(event.participants||'').trim().replace(/\s+/g,' ').toLowerCase();
+  const registration=String(event.registration_url||'').trim();
+  const registrationKey=/^https?:\/\//i.test(registration)?registration:registration.toLowerCase().replace(/\s+/g,' ');
+  const key=JSON.stringify([name.toLowerCase(),participants,registrationKey]);
+  if(!groups.has(key)){const group={...event,title:event.title||name,sessions:[],boardGame:/\b(chess|carrom)\b/i.test(event.title)};groups.set(key,group);result.push(group)}
   const group=groups.get(key);group.sessions.push(event);
   for(const field of ['winner','runner_up','second_runner_up'])if(!group[field]&&event[field])group[field]=event[field];
   {const cur=String(group.registration_url||'').trim(),next=String(event.registration_url||'').trim();
@@ -984,5 +987,19 @@ async function loadSponsors(){
 }
 loadSponsors();setInterval(loadSponsors,300000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadSponsors()});
+</script>
+
+<script>
+/* Keep the sponsor anchor in view while preceding lazy content changes height. */
+(()=>{
+ let observer,timer,frame;
+ const stop=()=>{observer?.disconnect();observer=null;clearTimeout(timer);cancelAnimationFrame(frame)};
+ const align=()=>{if(location.hash!=='#sponsors')return;const target=document.getElementById('sponsors');const header=document.querySelector('body > header');const offset=(header?.getBoundingClientRect().height||0)+12;window.scrollTo({top:Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset),behavior:'instant'})};
+ const navigate=()=>{stop();align();if('ResizeObserver' in window){observer=new ResizeObserver(()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(align)});document.querySelectorAll('main > section,body > header').forEach(el=>observer.observe(el))}timer=setTimeout(stop,20000)};
+ document.querySelectorAll('a[href="#sponsors"]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();history.pushState(null,'','#sponsors');navigate()}));
+ window.addEventListener('hashchange',()=>{stop();if(location.hash==='#sponsors')navigate()});
+ for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,stop,{passive:true});
+ if(location.hash==='#sponsors')navigate();
+})();
 </script>
 </body></html>
